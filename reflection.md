@@ -5,7 +5,13 @@
 **a. Initial design**
 
 - Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+    - Five core data classes: owner, pet, task, daily schedule, and scheduled task
+- What classes did you include, and what responsibilities did you assign to each? 
+    - owner: personal information about the owner, pet info
+    - pet: basic pet info, being able to manage tasks,
+    - task: info about the task, time it takes, notes, is is re-occuring?
+    - scheduled tasks: what the task is, time, reason behind task
+    - daily schedule: what tasks are being tracked, minutes available
 
 **b. Design changes**
 
