@@ -41,3 +41,9 @@ pip install -r requirements.txt
 5. Add tests to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
+
+### Testing PawPal+
+
+Command to Run Tests: python -m pytest
+
+The tests check to see if the mark_complete feature works, adding tasks work, soring by time, checks for daily occurances, and checks same time tasks to produce a warning if something is wrong.
