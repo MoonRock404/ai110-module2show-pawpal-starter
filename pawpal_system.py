@@ -1,44 +1,23 @@
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Optional
 import uuid
 
 
-# --- Enumerations ---
-
-class TaskType(Enum):
-    WALK = "walk"
-    FEEDING = "feeding"
-    MEDICATION = "medication"
-    ENRICHMENT = "enrichment"
-    GROOMING = "grooming"
-    VET_VISIT = "vet_visit"
-    OTHER = "other"
-
-
-class Priority(Enum):
-    CRITICAL = 1
-    HIGH = 2
-    MEDIUM = 3
-    LOW = 4
-
-
-# --- Data Classes ---
-
 @dataclass
 class Task:
-    title: str
-    task_type: TaskType
+    """Represents a single pet care activity."""
+    description: str
     duration_minutes: int
-    priority: Priority
+    priority: int           # 1 = highest, 4 = lowest
+    frequency: str          # e.g. "daily", "twice daily", "weekly"
     preferred_time: Optional[str] = None  # e.g. "08:00"
-    is_recurring: bool = True
-    notes: str = ""
+    completed: bool = False
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass
 class Pet:
+    """Stores pet details and owns a list of tasks."""
     name: str
     species: str
     age_years: int
@@ -46,74 +25,73 @@ class Pet:
     tasks: list[Task] = field(default_factory=list)
 
     def add_task(self, task: Task) -> None:
-        pass
+        self.tasks.append(task)
 
     def remove_task(self, task_id: str) -> None:
-        pass
+        self.tasks = [t for t in self.tasks if t.id != task_id]
 
     def get_tasks_by_priority(self) -> list[Task]:
-        pass
+        return sorted(self.tasks, key=lambda t: t.priority)
 
-
-# --- Owner ---
 
 class Owner:
-    def __init__(self, name: str, email: str, available_minutes_per_day: int):
+    """Manages multiple pets and provides access to all their tasks."""
+
+    def __init__(self, name: str, available_minutes_per_day: int):
         self.name = name
-        self.email = email
         self.available_minutes_per_day = available_minutes_per_day
         self.pets: list[Pet] = []
 
     def add_pet(self, pet: Pet) -> None:
-        pass
+        self.pets.append(pet)
 
     def remove_pet(self, pet_name: str) -> None:
-        pass
+        self.pets = [p for p in self.pets if p.name != pet_name]
 
+    def get_all_tasks(self) -> list[Task]:
+        """Returns every task across all pets."""
+        return [task for pet in self.pets for task in pet.tasks]
 
-# --- Schedule Output ---
-
-@dataclass
-class ScheduledTask:
-    task: Task
-    start_time: str   # e.g. "08:00"
-    end_time: str     # e.g. "08:30"
-    reason: str = ""
-
-
-@dataclass
-class DailySchedule:
-    scheduled_tasks: list[ScheduledTask] = field(default_factory=list)
-    unscheduled_tasks: list[Task] = field(default_factory=list)
-    total_minutes_used: int = 0
-    total_minutes_available: int = 0
-    summary: str = ""
-
-    def get_schedule_by_time(self) -> list[ScheduledTask]:
-        pass
-
-    def get_unscheduled_summary(self) -> str:
-        pass
-
-
-# --- Scheduler ---
 
 class Scheduler:
-    def __init__(self, owner: Owner, pet: Pet):
-        self.owner = owner
-        self.pet = pet
+    """The brain — retrieves, organizes, and manages tasks across all pets."""
 
-    def generate_schedule(self) -> DailySchedule:
-        pass
+    def __init__(self, owner: Owner):
+        self.owner = owner
+
+    def generate_schedule(self) -> list[Task]:
+        """Returns an ordered list of tasks that fit within the owner's time budget."""
+        sorted_tasks = self._sort_by_priority(self.owner.get_all_tasks())
+        scheduled, skipped = [], []
+        used = 0
+        for task in sorted_tasks:
+            if self._fits_in_budget(task, used):
+                scheduled.append(task)
+                used += task.duration_minutes
+            else:
+                skipped.append(task)
+        self._build_explanation(scheduled, skipped)
+        return scheduled
+
+    def mark_complete(self, task_id: str) -> None:
+        """Marks a task as completed by id."""
+        for task in self.owner.get_all_tasks():
+            if task.id == task_id:
+                task.completed = True
+                return
+
+    def get_pending_tasks(self) -> list[Task]:
+        """Returns all incomplete tasks across all pets, sorted by priority."""
+        pending = [t for t in self.owner.get_all_tasks() if not t.completed]
+        return self._sort_by_priority(pending)
 
     def _sort_by_priority(self, tasks: list[Task]) -> list[Task]:
-        pass
+        return sorted(tasks, key=lambda t: (t.priority, t.preferred_time or "99:99"))
 
-    def _fits_in_schedule(self, task: Task, used_minutes: int) -> bool:
-        pass
+    def _fits_in_budget(self, task: Task, used_minutes: int) -> bool:
+        return used_minutes + task.duration_minutes <= self.owner.available_minutes_per_day
 
-    def _assign_time_slot(self, task: Task, current_time: str) -> ScheduledTask:
-        pass
-
-    def _build_explanation(self, scheduled: list[ScheduledTask], unscheduled: list[Task]) -> str:
-        pass
+    def _build_explanation(self, scheduled: list[Task], skipped: list[Task]) -> str:
+        lines = [f"  - {t.description} ({t.duration_minutes} min)" for t in scheduled]
+        skip_lines = [f"  - {t.description} (skipped: not enough time)" for t in skipped]
+        return "\n".join(lines + skip_lines)
