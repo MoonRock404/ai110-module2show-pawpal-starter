@@ -26,12 +26,17 @@
 **a. Constraints and priorities**
 
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
+    - time and priority
 - How did you decide which constraints mattered most?
+    - budget was one of the most important thing to consider because if thats full than nothing can really work
+
 
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
+    - it prioritizes the priority constraint over the time effciency constraint
 - Why is that tradeoff reasonable for this scenario?
+    - the trade off is reasonable in this situation because at least the owners will be able to get their task done (even if it isnt the most efficient one)
 
 ---
 
@@ -47,7 +52,9 @@
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
+    - some of the test cases AI gave was not nessacary because other test cases covered the functionality it was trying to test
 - How did you evaluate or verify what the AI suggested?
+    - I always made sure to understand what changes were being done to my code and why they were needed.
 
 ---
 
@@ -56,7 +63,9 @@
 **a. What you tested**
 
 - What behaviors did you test?
+    - see if the mark_complete feature works, adding tasks work, soring by time, checks for daily occurances, and checks same time tasks to produce a warning if something is wrong.
 - Why were these tests important?
+    - these things test for basic functionallity in the code to see if it works as expected.
 
 **b. Confidence**
 

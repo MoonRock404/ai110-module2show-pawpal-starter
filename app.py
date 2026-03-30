@@ -62,9 +62,11 @@ if st.button("Add Task"):
         st.session_state.pet.add_task(task)
         st.success(f"Added: {task_title}")
 
-# Display current tasks
+# Display current tasks sorted chronologically
 if st.session_state.pet and st.session_state.pet.tasks:
     st.write("Current tasks:")
+    scheduler_preview = Scheduler(st.session_state.owner)
+    sorted_tasks = scheduler_preview.sort_by_time(st.session_state.pet.tasks)
     st.table([
         {
             "Description": t.description,
@@ -73,7 +75,7 @@ if st.session_state.pet and st.session_state.pet.tasks:
             "Preferred Time": t.preferred_time or "--",
             "Done": t.completed,
         }
-        for t in st.session_state.pet.tasks
+        for t in sorted_tasks
     ])
 else:
     st.info("No tasks yet. Add one above.")
@@ -92,10 +94,15 @@ if st.button("Generate Schedule"):
     else:
         scheduler = Scheduler(st.session_state.owner)
         schedule = scheduler.generate_schedule()
+        time_ordered = scheduler.sort_by_time(schedule)
 
-        st.success(f"Scheduled {len(schedule)} task(s) for {st.session_state.pet.name}:")
+        # Show conflict warnings before the task list
+        for warning in scheduler.conflict_warnings(schedule):
+            st.warning(warning)
+
+        st.success(f"Scheduled {len(time_ordered)} task(s) for {st.session_state.pet.name}:")
         total = 0
-        for i, task in enumerate(schedule, start=1):
+        for i, task in enumerate(time_ordered, start=1):
             time_label = task.preferred_time or "--:--"
             st.markdown(f"**{i}. [{time_label}] {task.description}** — {task.duration_minutes} min | priority {task.priority}")
             total += task.duration_minutes
