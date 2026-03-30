@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+from datetime import date, timedelta
+from itertools import combinations
 from typing import Optional
 import uuid
 
@@ -60,7 +62,8 @@ class Scheduler:
         self.owner = owner
 
     def generate_schedule(self) -> list[Task]:
-        """Returns an ordered list of tasks that fit within the owner's time budget."""
+        """Returns an ordered list of tasks that fit within the owner's time budget.
+        Prints any scheduling conflicts as warnings without interrupting the schedule."""
         sorted_tasks = self._sort_by_priority(self.owner.get_all_tasks())
         scheduled, skipped = [], []
         used = 0
@@ -71,14 +74,55 @@ class Scheduler:
             else:
                 skipped.append(task)
         self._build_explanation(scheduled, skipped)
+        for warning in self.conflict_warnings(scheduled):
+            print(warning)
         return scheduled
 
+    def conflict_warnings(self, tasks: list[Task]) -> list[str]:
+        """Returns human-readable warning strings for any overlapping tasks.
+        Never raises — returns an empty list if detection fails or finds nothing."""
+        try:
+            conflicts = self.detect_conflicts(tasks)
+        except Exception:
+            return ["WARNING: conflict detection encountered an unexpected error."]
+        warnings = []
+        for a, b, pet_a, pet_b in conflicts:
+            who_a = f"{a.description} ({pet_a}, {a.preferred_time})"
+            who_b = f"{b.description} ({pet_b}, {b.preferred_time})"
+            warnings.append(f"WARNING: '{who_a}' overlaps with '{who_b}'")
+        return warnings
+
     def mark_complete(self, task_id: str) -> None:
-        """Marks a task as completed by id."""
-        for task in self.owner.get_all_tasks():
-            if task.id == task_id:
-                task.completed = True
-                return
+        """Marks a task as completed by id.
+        For 'daily' and 'weekly' tasks, schedules a new instance for the next occurrence."""
+        for pet in self.owner.pets:
+            for task in pet.tasks:
+                if task.id == task_id:
+                    task.completed = True
+                    next_time = self._next_occurrence_time(task)
+                    if next_time is not None:
+                        pet.add_task(Task(
+                            description=task.description,
+                            duration_minutes=task.duration_minutes,
+                            priority=task.priority,
+                            frequency=task.frequency,
+                            preferred_time=next_time,
+                        ))
+                    return
+
+    def _next_occurrence_time(self, task: Task) -> Optional[str]:
+        """Returns the preferred_time string for the next occurrence, or None for one-off tasks."""
+        if task.frequency == "daily":
+            next_date = date.today() + timedelta(days=1)
+        elif task.frequency == "weekly":
+            next_date = date.today() + timedelta(weeks=1)
+        elif task.frequency == "twice daily":
+            next_date = date.today()
+        else:
+            return None  # monthly, one-off, etc. — no auto-recurrence
+        prefix = next_date.strftime("%Y-%m-%d")
+        time_part = task.preferred_time or "08:00"
+        return f"{prefix} {time_part}"
 
     def get_pending_tasks(self) -> list[Task]:
         """Returns all incomplete tasks across all pets, sorted by priority."""
@@ -87,6 +131,39 @@ class Scheduler:
 
     def _sort_by_priority(self, tasks: list[Task]) -> list[Task]:
         return sorted(tasks, key=lambda t: (t.priority, t.preferred_time or "99:99"))
+
+    def sort_by_time(self, tasks: list[Task]) -> list[Task]:
+        """Sorts tasks chronologically by preferred_time.
+        Tasks without a preferred_time are placed at the end."""
+        return sorted(tasks, key=lambda t: t.preferred_time or "99:99")
+
+    def detect_conflicts(self, tasks: list[Task]) -> list[tuple[Task, Task, str, str]]:
+        """Returns a list of (task_a, task_b, pet_a, pet_b) tuples where the two tasks
+        have overlapping time windows. Tasks without a preferred_time are skipped."""
+        pet_of = {
+            task.id: pet.name
+            for pet in self.owner.pets
+            for task in pet.tasks
+        }
+        timed = [t for t in tasks if t.preferred_time and self._task_start_minutes(t) is not None]
+        starts = {t.id: self._task_start_minutes(t) for t in timed}
+        conflicts = []
+        for a, b in combinations(timed, 2):
+            start_a, start_b = starts[a.id], starts[b.id]
+            if start_a < start_b + b.duration_minutes and start_b < start_a + a.duration_minutes:
+                conflicts.append((a, b, pet_of.get(a.id, "?"), pet_of.get(b.id, "?")))
+        return conflicts
+
+    def _task_start_minutes(self, task: Task) -> Optional[int]:
+        """Parses preferred_time ('HH:MM' or 'YYYY-MM-DD HH:MM') into minutes since midnight."""
+        if not task.preferred_time:
+            return None
+        time_part = task.preferred_time.split(" ")[-1]  # handles both formats
+        try:
+            h, m = time_part.split(":")
+            return int(h) * 60 + int(m)
+        except ValueError:
+            return None
 
     def _fits_in_budget(self, task: Task, used_minutes: int) -> bool:
         return used_minutes + task.duration_minutes <= self.owner.available_minutes_per_day

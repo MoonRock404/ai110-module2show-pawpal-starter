@@ -40,7 +40,9 @@
 **a. How you used AI**
 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
+    - I used AI for understanding the code, debugging, and brainstorming.
 - What kinds of prompts or questions were most helpful?
+    - The prompts or questions that was most helpful were the ones that were super detailed and knew exactly what was wanted.
 
 **b. Judgment and verification**
 
